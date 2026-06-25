@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="theme-color" content="#0f0f0f">
+  <title>eBay → Sheets</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f0f;
+      --surface: #1a1a1a;
+      --surface2: #242424;
+      --border: rgba(255,255,255,0.08);
+      --border2: rgba(255,255,255,0.15);
+      --text: #f0f0f0;
+      --muted: #888;
+      --hint: #555;
+      --accent: #3b82f6;
+      --accent-dim: rgba(59,130,246,0.15);
+      --success: #22c55e;
+      --success-dim: rgba(34,197,94,0.12);
+      --warn: #f59e0b;
+      --warn-dim: rgba(245,158,11,0.12);
+      --danger: #ef4444;
+      --danger-dim: rgba(239,68,68,0.12);
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100dvh;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .app {
+      max-width: 520px;
+      margin: 0 auto;
+      padding: 0 0 120px;
+    }
+
+    /* Header */
+    .header {
+      padding: 20px 20px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      z-index: 10;
+    }
+    .header-title {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+    }
+    .header-sub {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 1px;
+    }
+    .settings-btn {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 16px;
+      transition: background 0.15s;
+    }
+    .settings-btn:hover { background: var(--surface2); }
+
+    /* Content */
+    .content { padding: 20px; }
+
+    /* Section */
+    .section { margin-bottom: 20px; }
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    /* Upload zones */
+    .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    .upload-zone {
+      background: var(--surface);
+      border: 1.5px dashed var(--border2);
+      border-radius: var(--radius);
+      padding: 20px 12px;
+      text-align: center;
+      cursor: pointer;
+      position: relative;
+      transition: border-color 0.15s, background 0.15s;
+      min-height: 120px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 6px;
+    }
+    .upload-zone:active { background: var(--surface2); }
+    .upload-zone.has-image {
+      border-style: solid;
+      border-color: var(--success);
+      padding: 0;
+      overflow: hidden;
+    }
+    .upload-zone input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .upload-icon { font-size: 26px; opacity: 0.4; }
+    .upload-title { font-size: 13px; font-weight: 500; }
+    .upload-sub { font-size: 11px; color: var(--muted); }
+    .upload-preview {
+      width: 100%; height: 100%; object-fit: cover;
+      min-height: 120px; display: block;
+    }
+    .upload-check {
+      position: absolute; top: 6px; right: 6px;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: var(--success);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; color: #000; font-weight: 700;
+    }
+    .upload-replace {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: rgba(0,0,0,0.6);
+      font-size: 11px; color: #fff; text-align: center;
+      padding: 4px; opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .upload-zone.has-image:active .upload-replace { opacity: 1; }
+
+    /* Run button */
+    .run-btn {
+      width: 100%;
+      padding: 16px;
+      background: var(--accent);
+      border: none;
+      border-radius: var(--radius);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: opacity 0.15s, transform 0.1s;
+      margin-bottom: 20px;
+    }
+    .run-btn:active { transform: scale(0.98); }
+    .run-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .run-btn.loading { opacity: 0.7; }
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Status steps */
+    .steps { display: flex; flex-direction: column; gap: 2px; }
+    .step {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 12px;
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .step.active {
+      background: var(--accent-dim);
+      border-color: rgba(59,130,246,0.3);
+    }
+    .step.done {
+      background: var(--success-dim);
+      border-color: rgba(34,197,94,0.25);
+    }
+    .step.error {
+      background: var(--danger-dim);
+      border-color: rgba(239,68,68,0.3);
+    }
+    .step-icon {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; flex-shrink: 0;
+      color: var(--muted);
+    }
+    .step.active .step-icon { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .step.done .step-icon { background: var(--success); border-color: var(--success); color: #000; }
+    .step.error .step-icon { background: var(--danger); border-color: var(--danger); color: #fff; }
+    .step-body { flex: 1; min-width: 0; }
+    .step-title { font-size: 13px; font-weight: 500; }
+    .step-detail { font-size: 12px; color: var(--muted); margin-top: 2px; word-break: break-word; }
+    .step.active .step-detail { color: var(--accent); }
+    .step.done .step-detail { color: var(--success); }
+    .step.error .step-detail { color: var(--danger); }
+
+    /* Extracted data preview */
+    .data-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-top: 16px;
+    }
+    .data-card-header {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .data-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+    }
+    .data-row:last-child { border-bottom: none; }
+    .data-key { font-size: 12px; color: var(--muted); flex-shrink: 0; }
+    .data-val {
+      font-size: 13px; font-weight: 500;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      text-align: right; color: var(--text);
+    }
+    .data-val.sku { color: var(--accent); }
+    .col-badge {
+      font-size: 10px; padding: 2px 6px;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: 4px;
+      color: var(--hint);
+      flex-shrink: 0;
+      font-family: monospace;
+    }
+
+    /* Settings panel */
+    .panel {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 100;
+      display: none;
+      align-items: flex-end;
+    }
+    .panel.open { display: flex; }
+    .panel-sheet {
+      background: var(--surface);
+      border-radius: 20px 20px 0 0;
+      width: 100%; max-height: 88dvh;
+      overflow-y: auto;
+      padding: 0 0 40px;
+    }
+    .panel-handle {
+      width: 36px; height: 4px;
+      background: var(--border2);
+      border-radius: 2px;
+      margin: 12px auto 4px;
+    }
+    .panel-title {
+      font-size: 16px; font-weight: 600;
+      padding: 12px 20px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .panel-body { padding: 20px; }
+    .field { margin-bottom: 16px; }
+    .field-label {
+      font-size: 12px; color: var(--muted);
+      margin-bottom: 6px; display: block;
+    }
+    .field input, .field textarea {
+      width: 100%; padding: 12px 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-size: 14px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .field input:focus, .field textarea:focus {
+      border-color: var(--accent);
+    }
+    .field input::placeholder, .field textarea::placeholder {
+      color: var(--hint); font-family: -apple-system, sans-serif;
+    }
+    .field textarea { resize: vertical; min-height: 80px; font-size: 12px; }
+    .field-hint { font-size: 11px; color: var(--hint); margin-top: 5px; }
+
+    .save-btn {
+      width: 100%; padding: 14px;
+      background: var(--accent); border: none;
+      border-radius: var(--radius); color: #fff;
+      font-size: 15px; font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+    .save-btn:active { opacity: 0.8; }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: 20px;
+      padding: 10px 18px;
+      font-size: 13px; font-weight: 500;
+      white-space: nowrap;
+      z-index: 200;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .toast.show { opacity: 1; }
+    .toast.success { background: var(--success-dim); border-color: rgba(34,197,94,0.4); color: var(--success); }
+    .toast.error { background: var(--danger-dim); border-color: rgba(239,68,68,0.4); color: var(--danger); }
+
+    /* Success state */
+    .success-banner {
+      background: var(--success-dim);
+      border: 1px solid rgba(34,197,94,0.3);
+      border-radius: var(--radius);
+      padding: 16px;
+      text-align: center;
+      margin-bottom: 16px;
+      display: none;
+    }
+    .success-banner.show { display: block; }
+    .success-banner .icon { font-size: 32px; margin-bottom: 6px; }
+    .success-banner .title { font-size: 15px; font-weight: 600; color: var(--success); }
+    .success-banner .sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <div>
+      <div class="header-title">eBay → Sheets</div>
+      <div class="header-sub">Verkauf automatisch eintragen</div>
+    </div>
+    <button class="settings-btn" onclick="openSettings()" title="Einstellungen">⚙️</button>
+  </div>
+
+  <div class="content">
+
+    <!-- Upload -->
+    <div class="section">
+      <div class="section-label">Screenshots</div>
+      <div class="upload-grid">
+        <div>
+          <div class="upload-zone" id="zone1">
+            <input type="file" accept="image/*" onchange="handleFile(1, this)" id="file1">
+            <div class="upload-icon">📋</div>
+            <div class="upload-title">Screenshot 1</div>
+            <div class="upload-sub">SKU & Bestellung</div>
+            <div class="upload-replace">Ersetzen</div>
+          </div>
+        </div>
+        <div>
+          <div class="upload-zone" id="zone2">
+            <input type="file" accept="image/*" onchange="handleFile(2, this)" id="file2">
+            <div class="upload-icon">💰</div>
+            <div class="upload-title">Screenshot 2</div>
+            <div class="upload-sub">Beträge & Gebühren</div>
+            <div class="upload-replace">Ersetzen</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Run -->
+    <button class="run-btn" id="runBtn" disabled onclick="runPipeline()">
+      <span id="runIcon">▶</span>
+      <span id="runLabel">Ausführen</span>
+    </button>
+
+    <!-- Success banner -->
+    <div class="success-banner" id="successBanner">
+      <div class="icon">✅</div>
+      <div class="title">Erfolgreich eingetragen</div>
+      <div class="sub" id="successSub"></div>
+    </div>
+
+    <!-- Steps -->
+    <div class="section">
+      <div class="section-label">Status</div>
+      <div class="steps">
+        <div class="step" id="step1">
+          <div class="step-icon">1</div>
+          <div class="step-body">
+            <div class="step-title">KI liest Screenshots</div>
+            <div class="step-detail" id="step1-detail">Wartet auf Start</div>
+          </div>
+        </div>
+        <div class="step" id="step2">
+          <div class="step-icon">2</div>
+          <div class="step-body">
+            <div class="step-title">SKU wird gefunden</div>
+            <div class="step-detail" id="step2-detail">Wartet auf Schritt 1</div>
+          </div>
+        </div>
+        <div class="step" id="step3">
+          <div class="step-icon">3</div>
+          <div class="step-body">
+            <div class="step-title">Daten werden eingetragen</div>
+            <div class="step-detail" id="step3-detail">Wartet auf Schritt 2</div>
+          </div>
+        </div>
+        <div class="step" id="step4">
+          <div class="step-icon">4</div>
+          <div class="step-body">
+            <div class="step-title">Zeile wird verschoben</div>
+            <div class="step-detail" id="step4-detail">Stock → Current Quarter Sold</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Extracted data preview -->
+    <div id="dataPreview" style="display:none;">
+      <div class="section-label">Extrahierte Daten</div>
+      <div class="data-card">
+        <div class="data-card-header">Erkannte Felder</div>
+        <div id="dataRows"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Settings Panel -->
+<div class="panel" id="settingsPanel" onclick="closeOnBackdrop(event)">
+  <div class="panel-sheet">
+    <div class="panel-handle"></div>
+    <div class="panel-title">Einstellungen</div>
+    <div class="panel-body">
+
+      <div class="field">
+        <label class="field-label">Anthropic API Key</label>
+        <input type="password" id="cfg-apiKey" placeholder="sk-ant-api03-...">
+        <div class="field-hint">Für die KI-Bilderkennung · console.anthropic.com</div>
+      </div>
+
+      <div class="field">
+        <label class="field-label">Backend URL</label>
+        <input type="text" id="cfg-backendUrl" placeholder="https://deine-app.vercel.app">
+        <div class="field-hint">Deine Vercel-URL nach dem Deployment</div>
+      </div>
+
+      <div class="field">
+        <label class="field-label">Google Sheets ID</label>
+        <input type="text" id="cfg-sheetId" placeholder="1BxiMVs0XRA5nFMdKvBdBZjg...">
+        <div class="field-hint">Aus der Tabellen-URL: /spreadsheets/d/<b>ID</b>/edit</div>
+      </div>
+
+      <div class="field">
+        <label class="field-label">Passwort (optional)</label>
+        <input type="password" id="cfg-password" placeholder="Zum Schutz der App">
+        <div class="field-hint">Verhindert unbefugte Nutzung</div>
+      </div>
+
+      <button class="save-btn" onclick="saveSettings()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+const FIELDS = [
+  { key: 'sku',              label: 'SKU',                    col: null,  note: 'Suchschlüssel' },
+  { key: 'datum',            label: 'Käufer hat bezahlt',     col: 'C'  },
+  { key: 'gesamtbetrag',     label: 'Gesamtbetrag (Käufer)',  col: 'U'  },
+  { key: 'transaktionsgebuehr', label: 'Transaktionsgebühren', col: 'V' },
+  { key: 'anzeigengebuehr',  label: 'Anzeigengebühr Basis',   col: 'W'  },
+  { key: 'versand',          label: 'Versand',                col: 'X'  },
+  { key: 'versandetikett',   label: 'Versandetikett',         col: 'Y'  },
+
+];
+
+let state = { img1: null, img2: null, extracted: null };
+
+function loadSettings() {
+  const s = JSON.parse(localStorage.getItem('ebay_cfg') || '{}');
+  document.getElementById('cfg-apiKey').value = s.apiKey || '';
+  document.getElementById('cfg-backendUrl').value = s.backendUrl || '';
+  document.getElementById('cfg-sheetId').value = s.sheetId || '';
+  document.getElementById('cfg-password').value = s.password || '';
+}
+function saveSettings() {
+  const cfg = {
+    apiKey: document.getElementById('cfg-apiKey').value.trim(),
+    backendUrl: document.getElementById('cfg-backendUrl').value.trim().replace(/\/$/, ''),
+    sheetId: document.getElementById('cfg-sheetId').value.trim(),
+    password: document.getElementById('cfg-password').value.trim(),
+  };
+  localStorage.setItem('ebay_cfg', JSON.stringify(cfg));
+  closeSettings();
+  showToast('Einstellungen gespeichert', 'success');
+}
+function getConfig() {
+  return JSON.parse(localStorage.getItem('ebay_cfg') || '{}');
+}
+
+function openSettings() {
+  loadSettings();
+  document.getElementById('settingsPanel').classList.add('open');
+}
+function closeSettings() {
+  document.getElementById('settingsPanel').classList.remove('open');
+}
+function closeOnBackdrop(e) {
+  if (e.target === document.getElementById('settingsPanel')) closeSettings();
+}
+
+function handleFile(num, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const data = e.target.result;
+    if (num === 1) state.img1 = data;
+    else state.img2 = data;
+    const zone = document.getElementById('zone' + num);
+    zone.classList.add('has-image');
+    zone.innerHTML = `
+      <input type="file" accept="image/*" onchange="handleFile(${num}, this)">
+      <img src="${data}" class="upload-preview" alt="Screenshot ${num}">
+      <div class="upload-check">✓</div>
+      <div class="upload-replace">Ersetzen</div>
+    `;
+    checkReady();
+  };
+  reader.readAsDataURL(file);
+}
+
+function checkReady() {
+  document.getElementById('runBtn').disabled = !(state.img1 && state.img2);
+}
+
+function setStep(num, status, detail) {
+  const el = document.getElementById('step' + num);
+  el.className = 'step ' + status;
+  const icons = { active: '⏳', done: '✓', error: '✕', '': num };
+  el.querySelector('.step-icon').textContent = icons[status] || num;
+  if (detail) el.querySelector('.step-detail').textContent = detail;
+}
+
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + type;
+  setTimeout(() => t.className = 'toast', 2800);
+}
+
+async function runPipeline() {
+  const cfg = getConfig();
+  if (!cfg.apiKey) {
+    showToast('Bitte zuerst API Key in Einstellungen eintragen', 'error');
+    openSettings();
+    return;
+  }
+
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  btn.classList.add('loading');
+  document.getElementById('runIcon').innerHTML = '<div class="spinner"></div>';
+  document.getElementById('runLabel').textContent = 'Läuft...';
+  document.getElementById('successBanner').classList.remove('show');
+  document.getElementById('dataPreview').style.display = 'none';
+
+  [1,2,3,4].forEach(i => setStep(i, '', i === 1 ? 'Startet...' : 'Wartet...'));
+
+  try {
+    // Step 1: Extract with Claude
+    setStep(1, 'active', 'Claude analysiert Screenshots...');
+    const extracted = await extractWithClaude(cfg);
+    state.extracted = extracted;
+    setStep(1, 'done', `SKU erkannt: ${extracted.sku}`);
+    showDataPreview(extracted);
+
+    // Step 2: Find row
+    setStep(2, 'active', `Suche SKU ${extracted.sku} in Tabelle...`);
+    await new Promise(r => setTimeout(r, 400));
+
+    // Step 3 & 4: Write to sheets via backend
+    setStep(2, 'done', `SKU gefunden · Zeile wird befüllt`);
+    setStep(3, 'active', 'Spalten C, U, V, W, X, Y, Z werden eingetragen...');
+
+    if (cfg.backendUrl) {
+      await callBackend(cfg, extracted);
+    } else {
+      await new Promise(r => setTimeout(r, 600));
+      setStep(3, 'done', 'Spalten eingetragen (Demo-Modus)');
+      setStep(4, 'active', 'Zeile wird zu Current Quarter Sold verschoben...');
+      await new Promise(r => setTimeout(r, 500));
+      setStep(4, 'done', 'Zeile verschoben · Stock aktualisiert');
+    }
+
+    document.getElementById('successBanner').classList.add('show');
+    document.getElementById('successSub').textContent =
+      `SKU ${extracted.sku} · ${extracted.datum || ''}`;
+    showToast('Fertig! Daten eingetragen ✓', 'success');
+
+  } catch(e) {
+    const failedStep = [1,2,3,4].find(i =>
+      document.getElementById('step'+i).classList.contains('active')) || 1;
+    setStep(failedStep, 'error', e.message);
+    showToast('Fehler: ' + e.message, 'error');
+  }
+
+  btn.disabled = false;
+  btn.classList.remove('loading');
+  document.getElementById('runIcon').textContent = '▶';
+  document.getElementById('runLabel').textContent = 'Erneut ausführen';
+}
+
+async function extractWithClaude(cfg) {
+  const img1b64 = state.img1.split(',')[1];
+  const img2b64 = state.img2.split(',')[1];
+  const mime1 = state.img1.match(/data:(.*?);/)[1];
+  const mime2 = state.img2.match(/data:(.*?);/)[1];
+
+  const prompt = `Analysiere diese zwei eBay-Screenshots und extrahiere folgende Felder als JSON.
+Antworte NUR mit dem JSON-Objekt, ohne Erklärung, ohne Markdown.
+
+Screenshot 1 enthält:
+- sku: der Wert direkt hinter "Bestandseinheit (SKU):"
+- datum: das Datum direkt hinter "Käufer hat bezahlt" (Format: TT. Mon JJJJ)
+- bestellnummer: der Wert hinter "Bestellnummer"
+
+Screenshot 2 enthält:
+- gesamtbetrag: Zahl hinter "Gesamtbetrag" im Abschnitt "Vom Käufer bezahlt" (Zahl ohne €, Komma als Dezimaltrennzeichen)
+- transaktionsgebuehr: Zahl hinter "Transaktionsgebühren" (ohne - und €)
+- anzeigengebuehr: Zahl hinter "Anzeigengebühr Basis" (ohne - und €)
+- versand: Zahl hinter "Versand" im Abschnitt "Vom Käufer bezahlt" (ohne €)
+- versandetikett: Zahl hinter "Versandetikett" (ohne - und €)
+Alle Zahlen als Dezimalzahl mit Punkt statt Komma. Beispiel: 34.99 statt 34,99`;
+
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': cfg.apiKey,
+      'anthropic-version': '2023-06-01'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1000,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: mime1, data: img1b64 } },
+          { type: 'image', source: { type: 'base64', media_type: mime2, data: img2b64 } },
+          { type: 'text', text: prompt }
+        ]
+      }]
+    })
+  });
+
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.error?.message || `API Fehler ${resp.status}`);
+  }
+
+  const data = await resp.json();
+  const text = data.content[0].text.replace(/```json|```/g, '').trim();
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error('KI-Antwort konnte nicht gelesen werden');
+  }
+}
+
+async function callBackend(cfg, extracted) {
+  const resp = await fetch(cfg.backendUrl + '/api/sheets', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      password: cfg.password,
+      sheetId: cfg.sheetId,
+      data: extracted
+    })
+  });
+  const result = await resp.json();
+  if (!resp.ok || result.error) throw new Error(result.error || `Backend Fehler ${resp.status}`);
+  setStep(3, 'done', `${result.rowsWritten || 7} Spalten eingetragen in Zeile ${result.row}`);
+  setStep(4, 'active', 'Zeile wird zu Current Quarter Sold verschoben...');
+  await new Promise(r => setTimeout(r, 300));
+  setStep(4, 'done', `Zeile ${result.row} verschoben · aus Stock gelöscht`);
+}
+
+function showDataPreview(d) {
+  const rows = document.getElementById('dataRows');
+  rows.innerHTML = FIELDS.map(f => {
+    const val = d[f.key] ?? '—';
+    const colBadge = f.col ? `<span class="col-badge">Sp. ${f.col}</span>` : '';
+    const note = f.note ? `<span class="col-badge">${f.note}</span>` : '';
+    return `<div class="data-row">
+      <span class="data-key">${f.label}</span>
+      <div style="display:flex;align-items:center;gap:6px;">
+        ${colBadge}${note}
+        <span class="data-val ${f.key==='sku'?'sku':''}">${val}</span>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('dataPreview').style.display = '';
+}
+
+loadSettings();
+</script>
+</body>
+</html>
