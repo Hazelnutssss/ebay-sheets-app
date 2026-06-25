@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "sheets.js", "use": "@vercel/node" },
+    { "src": "index.html", "use": "@vercel/static" },
+    { "src": "manifest.json", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/api/sheets", "dest": "/sheets.js" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ]
+}
